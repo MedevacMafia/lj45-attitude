@@ -1,0 +1,904 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#080c12">
+<title>LJ45 Attitude · By Spiros Konstas</title>
+<meta name="description" content="Independent Learjet 45-inspired artificial horizon, compass and GPS simulator. By Spiros Konstas. Not for flight use.">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="LJ45 Attitude">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="apple-touch-icon" href="./apple-touch-icon.png">
+<link rel="icon" href="./icon-192.png" sizes="192x192" type="image/png">
+<link rel="manifest" href="./manifest.webmanifest">
+<style>
+:root { color-scheme: dark; --bg:#070b10; --panel:#151c24; --line:#394451; --text:#e5edf6; --muted:#99a8ba; --cyan:#76dced; --green:#9de385; --amber:#ffd35a; }
+* { box-sizing:border-box }
+html,body { margin:0; min-height:100%; background:var(--bg); color:var(--text); font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif; overscroll-behavior:none }
+body { min-height:100svh; -webkit-user-select:none; user-select:none; }
+main { height:100svh; display:flex; flex-direction:column; gap:8px; max-width:1100px; margin:auto; padding:max(9px,env(safe-area-inset-top)) 10px max(10px,env(safe-area-inset-bottom)); }
+header { min-height:30px; display:flex; justify-content:space-between; align-items:center; gap:8px; }
+.brand { display:flex; align-items:baseline; gap:9px; white-space:nowrap; }
+.brand strong { color:white; font-size:15px; letter-spacing:.11em; font-weight:800; }
+.brand small { font-size:10px; color:#9daabd; letter-spacing:.1em; }
+.status { display:flex; align-items:center; gap:6px; color:var(--muted); font-size:10px; font-weight:750; letter-spacing:.06em; text-align:right; }
+.dot { height:8px; width:8px; background:#e0ac50; border-radius:50%; flex:none; box-shadow:0 0 9px #e0ac5060; }
+.status.active .dot { background:#62dc90; box-shadow:0 0 9px #62dc9080; }
+#bezel { position:relative; flex:1; min-height:0; overflow:hidden; border:1px solid #59636c; border-radius:13px; padding:7px; background:linear-gradient(125deg,#34414f,#131920 12%,#090c12 60%,#303c48); box-shadow:0 8px 30px #000b,inset 0 1px 0 #71819166; }
+#display { display:block; width:100%; height:100%; background:#020406; border:1px solid #1a262e; border-radius:4px; touch-action:none; }
+.corner { position:absolute; width:7px; height:7px; border-radius:50%; background:#111b25; box-shadow:inset 0 0 0 1px #657181; pointer-events:none }
+.tl{top:2px;left:2px}.tr{top:2px;right:2px}.bl{bottom:2px;left:2px}.br{bottom:2px;right:2px}
+#panel { display:flex; flex-direction:column; gap:7px; flex:none; }
+.actions { display:grid; grid-template-columns:1.1fr 1.05fr .95fr .85fr .85fr .75fr; gap:6px; }
+#alertBar { display:flex; flex-wrap:wrap; gap:7px; align-items:center; background:#1c1520; padding:5px 7px; border:1px solid #534250; border-radius:7px; min-height:35px; }
+#bankAudio { min-width:96px; padding:7px 5px; border-color:#967048; color:#ffe0ae; }
+#bankAudio.selected { background:#4b3123; border-color:#f5a75f; color:#fff1cd; }
+#testBankAudio { min-width:85px; padding:7px 5px; color:#c7f7e2; border-color:#54867b; }
+#wakeBtn {min-width:70px; padding:7px 5px; color:#b6ebf6; border-color:#4e8591;}
+#bankNotice { flex:1 1 100%; font-size:10px; font-weight:750; color:#d8bfa7; line-height:1.3; }
+#alertBar.warning { background:#4e1b20; border-color:#fe8265; }
+#alertBar.warning #bankNotice { color:#ffe1c6; }
+#altBar, #speedBar { display:flex; gap:7px; align-items:center; background:#101c27; padding:5px 7px; border:1px solid #335466; border-radius:7px; min-height:35px; }
+#altMode, #speedMode { min-width:104px; padding:7px 5px; border-color:#55768b; color:#a2edf9; }
+#altMode.selected, #speedMode.selected { background:#184252; border-color:#67d2e8; color:#d0f8ff; }
+#gpsInfo, #speedInfo { font-size:10px; font-weight:750; color:#a8c5d5; overflow-wrap:anywhere; line-height:1.3; font-variant-numeric:tabular-nums; }
+button { border-radius:7px; border:1px solid #405061; background:linear-gradient(#263441,#141e29); color:#e9f1f8; padding:11px 5px; font-size:11px; line-height:1.1; font-weight:800; letter-spacing:.025em; cursor:pointer; min-width:0; user-select:none; -webkit-tap-highlight-color:transparent }
+button:active { transform:translateY(1px); background:#3c5568; }
+button.selected { background:#173e4c; border-color:#65becf; color:#b9f5ff; }
+button:focus-visible {outline:2px solid var(--cyan);outline-offset:2px}
+#hint {font-size:11px;color:#b0becb;line-height:1.35;margin:0;text-align:center;min-height:15px}
+#sensorInfo, #compassInfo {font-size:10px;line-height:1.25;color:#96d2e3;background:#091825;border:1px solid #2c4659;border-radius:5px;margin:0;padding:5px 7px;text-align:center;font-variant-numeric:tabular-nums;overflow-wrap:anywhere;}
+#manual { display:none; grid-template-columns:1fr 1fr; column-gap:18px; padding:4px 4px 0; }
+#manual.visible { display:grid }
+.control { display:flex; flex-direction:column; gap:3px; }
+.control label { display:flex; justify-content:space-between; font-size:10px; font-weight:750; letter-spacing:.07em; color:#b6c4d2; }
+.control output { color:var(--amber); font-variant-numeric:tabular-nums; }
+input[type=range] { width:100%; accent-color:#e5b74d; margin:4px 0; height:15px }
+footer { text-align:center; font-size:9px; color:#788b9c; letter-spacing:.035em; }
+footer .credit { font-size:11px; color:#b9cedb; font-weight:700; letter-spacing:.06em; margin-bottom:3px; }
+@media (orientation:landscape) and (max-height:550px) {
+  main { flex-direction:row; padding:5px max(5px,env(safe-area-inset-right)) 5px max(5px,env(safe-area-inset-left)); gap:5px; max-width:none; }
+  header { position:absolute; z-index:2; top:10px; left:auto; right:153px; pointer-events:none; }
+  header .brand { display:none }
+  #bezel { flex:1; min-width:0; }
+  #panel { width:130px; min-width:130px; gap:4px; justify-content:center; }
+  .actions { grid-template-columns:1fr 1fr; gap:5px }
+  button {font-size:10px;padding:7px 3px}
+  #full {grid-column:auto}
+  #alertBar {flex-direction:column; align-items:stretch; padding:4px; gap:2px; min-height:0}
+  #bankAudio, #testBankAudio, #wakeBtn { min-width:0; padding:6px 3px}
+  #bankNotice {font-size:9px; text-align:center}
+  #altBar, #speedBar {flex-direction:column; align-items:stretch; padding:4px; gap:2px; min-height:0}
+  #altMode, #speedMode {min-width:0; padding:6px 3px}
+  #gpsInfo, #speedInfo {font-size:9px; text-align:center}
+  #hint {font-size:9px; line-height:1.2; max-height:25px; overflow:hidden}
+  #manual.visible {grid-template-columns:1fr;row-gap:5px}
+  #sensorInfo {font-size:8px; max-height:30px; padding:4px; overflow:hidden; line-height:1.15}
+  footer {font-size:8px}
+  footer .credit {font-size:10px; margin-bottom:5px}
+}
+@media (max-width:390px) { .brand small{display:none} }
+@media (max-width:365px) { .brand strong{font-size:12px}.brand small{font-size:8px}.status{font-size:9px} button{font-size:10px} }
+</style>
+</head>
+<body>
+<main>
+<header>
+  <div class="brand"><strong>LEARJET 45</strong><small>PRIMUS 1000 · ATTITUDE</small></div>
+  <div class="status" id="status"><span class="dot"></span><span id="statusText">MOTION WAITING</span></div>
+</header>
+<section id="bezel" aria-label="Learjet 45-inspired artificial horizon display">
+  <canvas id="display" aria-label="Artificial horizon with pitch and bank indications"></canvas>
+  <span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
+</section>
+<section id="panel">
+  <div class="actions">
+    <button id="motion" class="selected" type="button" title="Attempt access to phone orientation sensors">SENSORS</button>
+    <button id="manualBtn" type="button" title="Set pitch and bank manually">MANUAL</button>
+    <button id="demoBtn" type="button" title="Animate the horizon to prove it works, without using the sensors">DEMO</button>
+    <button id="zero" type="button" title="Set the current phone position as straight and level">ZERO</button>
+    <button id="level" type="button" title="Reset artificial horizon to level">LEVEL</button>
+    <button id="full" type="button" title="Switch screen between landscape and portrait">ROTATE</button>
+  </div>
+  <div id="altBar">
+    <button id="altMode" type="button" aria-pressed="false" title="Switch altitude between simulated and the phone's satellite GPS">ALT: SIM</button>
+    <span id="gpsInfo" aria-live="polite">SIMULATED ALTITUDE 4,300 FT · TAP TO ENABLE LIVE GPS</span>
+  </div>
+  <div id="speedBar">
+    <button id="speedMode" type="button" aria-pressed="false" title="Switch left tape between simulated airspeed and live GPS ground speed">SPD: SIM</button>
+    <span id="speedInfo" aria-live="polite">SIMULATED IAS 240 KT · TAP FOR GPS GROUND SPEED</span>
+  </div>
+  <div id="alertBar" aria-label="Bank angle sound warning">
+    <button id="bankAudio" class="selected" type="button" aria-pressed="true" title="Turn the 35-degree bank warning audio on or off">BANK AUDIO: ON</button>
+    <button id="testBankAudio" type="button" title="Play the warning for 3.5 seconds to test media volume">TEST SOUND</button>
+    <button id="wakeBtn" type="button" title="Request screen wake lock while this app is visible">WAKE: ON</button>
+    <span id="bankNotice" aria-live="polite">ALERT ABOVE 35° · RESET BELOW 32° · AUDIO READY</span>
+  </div>
+  <div id="manual" aria-label="Manual control of attitude">
+    <div class="control"><label for="bank">BANK <output id="bankNum">0°</output></label><input id="bank" type="range" min="-80" max="80" value="0" step="1"></div>
+    <div class="control"><label for="pitch">PITCH <output id="pitchNum">0°</output></label><input id="pitch" type="range" min="-40" max="40" value="0" step="1"></div>
+  </div>
+  <p id="hint">Tap SENSORS (allow on iPhone), then ZERO. Tap TEST SOUND once to arm the bank warning.</p>
+  <p id="sensorInfo" aria-live="polite">Tap SENSORS to start motion readings.</p>
+  <p id="compassInfo" aria-live="polite">COMPASS: waiting for a north-referenced sensor reading…</p>
+  <footer><div class="credit">By Spiros Konstas</div><div>WEB v1.2 · PITCH + CHROME COMPASS FIX · NOT FOR FLIGHT USE · <a href="./privacy.html" style="color:#9ad3e0">Privacy</a></div></footer>
+</section>
+</main>
+<script>
+(() => {
+  'use strict';
+  const ANDROID_NATIVE_APP = false;
+  const canvas = document.getElementById('display');
+  const audio = new Audio('./bank_warning.mp3');
+  audio.preload = 'auto'; audio.loop = true;
+  let audioTestTimer = null, audioTestActive = false;
+  let wakeLock = null, wakeRequested = true, positionWatch = null;
+  let lastLocation = null;
+  let motionAllowed = false;
+  const ctx = canvas.getContext('2d',{ alpha:false });
+  const el = id => document.getElementById(id);
+  const rad = Math.PI / 180;
+  const clamp = (x,a,b) => Math.max(a,Math.min(b,x));
+  const wrap = x => ((x+180)%360+360)%360-180;
+  const state = {
+    mode:'motion', sensorSeen:false, lastSensor:0, source:'', bank:0, pitch:0, orientationEvents:0, motionEvents:0,
+    targetBank:0,targetPitch:0,rawBank:0,rawPitch:0,zeroBank:0,zeroPitch:0,
+    manualBank:0,manualPitch:0, pressed:false,dragX:0,dragY:0,
+    altMode:'sim', gpsAltitudeFeet:null, gpsDisplayFeet:null, gpsDatum:'WGS84', gpsAccuracyFeet:null, gpsLastFixAt:0, gpsStatus:'GPS OFF', speedMode:'sim', gpsSpeedKnots:null, gpsSpeedDisplayKnots:null, gpsSpeedAccuracyKnots:null, gpsSpeedLastFixAt:0, gpsSpeedStatus:'GPS OFF', heading:null, headingSource:'NO HEADING', bankAudioEnabled:true, bankAudioPlaying:false, bankAudioStatus:'TAP TEST SOUND TO ARM', pitchReverse:true
+  };
+  function setStatus(message,active=false) {
+    el('statusText').textContent=message;
+    el('status').classList.toggle('active',active);
+  }
+  function hint(message) {el('hint').textContent=message;}
+  const route=ANDROID_NATIVE_APP?'ANDROID APK':location.protocol==='content:'?'ANDROID CONTENT FILE':location.protocol==='file:'?'LOCAL FILE':location.protocol==='https:'?'HTTPS':location.protocol.replace(':','').toUpperCase();
+  let absoluteHeadingEvents=0;
+  let lastAbsoluteHeadingAt=0;
+  let lastHeadingAt=0;
+  let lastCompassAt=0;
+  let relativeOrientationEvents=0;
+  function updateDiagnostics(){
+    const live=state.sensorSeen && performance.now()-state.lastSensor<2000;
+    const measured=live?'LIVE '+state.source.toUpperCase()+' | BANK '+state.rawBank.toFixed(1)+'° / PITCH '+state.rawPitch.toFixed(1)+'°':'NO LIVE SENSOR READINGS';
+    el('sensorInfo').textContent='SENSOR: '+measured+'  |  EVENTS O:'+state.orientationEvents+' M:'+state.motionEvents+'  |  '+route+'  |  SECURE: '+(window.isSecureContext?'YES':'NO');
+    const compassFresh=Number.isFinite(state.heading) && performance.now()-lastHeadingAt<7000;
+    if (!compassFresh && state.headingSource!=='NO HEADING') {
+      state.heading=null;
+      state.headingSource='NO HEADING';
+    }
+    el('compassInfo').textContent=compassFresh
+      ? 'COMPASS: '+Math.round(state.heading).toString().padStart(3,'0')+'°  '+state.headingSource+'  |  CHROME ABS EVENTS: '+absoluteHeadingEvents
+      : (state.orientationEvents>0
+           ? 'COMPASS: NO ABSOLUTE HEADING  |  CHROME ABS EVENTS: '+absoluteHeadingEvents+'  |  Check Chrome > Site settings > Motion sensors'
+           : 'COMPASS: WAITING FOR SENSOR DATA  |  Tap SENSORS; use HTTPS and allow motion access');
+    if(state.mode==='motion'&&state.sensorSeen&&!live){setStatus('SENSOR SIGNAL LOST');}
+  }
+
+  // Bank alarm: on above 35°, off below 32° to avoid repeated switching near the boundary.
+  // Native Android SoundPool plays the short recording while the app is foregrounded.
+  function setNativeBankSound(active) {
+    if (audioTestActive) return;
+    if (active) {
+      audio.loop = true;
+      audio.currentTime = 0;
+      const pending = audio.play();
+      if (pending && typeof pending.catch === 'function') {
+        pending.then(() => { state.bankAudioStatus='ALERT PLAYING'; }).catch(() => {
+          state.bankAudioStatus='TAP TEST SOUND TO UNLOCK AUDIO';
+        });
+      }
+    } else {
+      audio.pause();
+      audio.currentTime = 0;
+      if (state.bankAudioStatus==='ALERT PLAYING') state.bankAudioStatus='AUDIO READY';
+    }
+  }
+  function refreshBankSound() {
+    const degrees=Math.abs(state.bank);
+    if(document.hidden) return;
+    if (!state.bankAudioEnabled) {
+      if(state.bankAudioPlaying) { state.bankAudioPlaying=false; setNativeBankSound(false); }
+    } else if (!state.bankAudioPlaying && degrees>35) {
+      state.bankAudioPlaying=true;
+      setNativeBankSound(true);
+    } else if (state.bankAudioPlaying && degrees<32) {
+      state.bankAudioPlaying=false;
+      setNativeBankSound(false);
+    }
+    const btn=el('bankAudio');
+    btn.textContent=state.bankAudioEnabled?'BANK AUDIO: ON':'BANK AUDIO: OFF';
+    btn.classList.toggle('selected',state.bankAudioEnabled);
+    btn.setAttribute('aria-pressed',state.bankAudioEnabled?'true':'false');
+    const warning=state.bankAudioPlaying && state.bankAudioEnabled;
+    el('alertBar').classList.toggle('warning',warning);
+    el('bankNotice').textContent=(warning?'BANK '+Math.round(degrees)+'° · ':'')+
+      (state.bankAudioEnabled?'':'MUTED · ')+state.bankAudioStatus;
+  }
+  el('bankAudio').addEventListener('click',()=>{
+    state.bankAudioEnabled=!state.bankAudioEnabled;
+    refreshBankSound();
+  });
+  window.receiveNativeBankAudioStatus = message => {
+    state.bankAudioStatus = String(message||'AUDIO UNKNOWN').slice(0,90);
+    // The warning bar is also refreshed by render().
+  };
+  el('testBankAudio').addEventListener('click',() => {
+    clearTimeout(audioTestTimer);
+    audio.pause(); audio.currentTime=0; audio.loop=true;
+    audioTestActive=true;
+    const pending=audio.play();
+    state.bankAudioStatus='TESTING 3.5 SECONDS';
+    if (pending && typeof pending.catch==='function') pending.catch(e=>{
+      state.bankAudioStatus='AUDIO BLOCKED · TAP TEST AGAIN'; audioTestActive=false;
+    });
+    audioTestTimer=setTimeout(()=>{
+      audioTestActive=false;
+      audio.pause();audio.currentTime=0;
+      state.bankAudioStatus='AUDIO ARMED';
+      if (state.bankAudioPlaying && state.bankAudioEnabled) setNativeBankSound(true);
+    },3500);
+  });
+  setInterval(updateDiagnostics,700);
+  const SIM_ALT_FT = 4300;
+  const SIM_IAS_KT = 240;
+  const KNOTS_PER_MPS = 1.943844492;
+  const FT_PER_M = 3.280839895;
+  const GPS_STALE_MS = 12000;
+  function gpsFresh() {
+    return state.altMode==='live' && Number.isFinite(state.gpsAltitudeFeet) &&
+      performance.now()-state.gpsLastFixAt<GPS_STALE_MS;
+  }
+  function currentAltitude() {
+    return state.altMode==='sim'?SIM_ALT_FT:gpsFresh()?state.gpsDisplayFeet:null;
+  }
+  function speedFresh() {
+    return state.speedMode==='live' && Number.isFinite(state.gpsSpeedKnots) &&
+      performance.now()-state.gpsSpeedLastFixAt<GPS_STALE_MS;
+  }
+  function currentSpeed() {
+    return state.speedMode==='sim'?SIM_IAS_KT:speedFresh()?state.gpsSpeedDisplayKnots:null;
+  }
+  function updateSpeedInfo() {
+    const btn=el('speedMode');
+    btn.textContent=state.speedMode==='live'?'SPD: GPS LIVE':'SPD: SIM';
+    btn.setAttribute('aria-pressed', state.speedMode==='live'?'true':'false');
+    btn.classList.toggle('selected',state.speedMode==='live');
+    if(state.speedMode==='sim') {
+      el('speedInfo').textContent='SIMULATED IAS 240 KT · TAP FOR GPS GROUND SPEED';
+    } else if(speedFresh()) {
+      const acc=Number.isFinite(state.gpsSpeedAccuracyKnots)?'  ±'+Math.round(state.gpsSpeedAccuracyKnots)+' KT':'';
+      el('speedInfo').textContent='LIVE GPS GS '+Math.round(state.gpsSpeedKnots)+' KT'+acc;
+    } else {
+      el('speedInfo').textContent='GPS SPEED: '+(state.gpsSpeedStatus||'WAITING FOR SATELLITES')+' · NO FIX';
+    }
+  }
+  el('speedMode').addEventListener('click', () => {
+    state.speedMode=state.speedMode==='sim'?'live':'sim';
+    state.gpsSpeedKnots=null; state.gpsSpeedDisplayKnots=null;
+    state.gpsSpeedAccuracyKnots=null;state.gpsSpeedLastFixAt=0;
+    state.gpsSpeedStatus=state.speedMode==='live'?'WAITING FOR PRECISE LOCATION / SATELLITES':'GPS OFF';
+    updateSpeedInfo();
+    syncGeolocation();
+  });
+  window.receiveNativeSpeed = (metersPerSecond,accuracyMetersPerSecond) => {
+    if(state.speedMode!=='live' || !Number.isFinite(metersPerSecond) || metersPerSecond<0 || metersPerSecond>500) return;
+    const knots=metersPerSecond*KNOTS_PER_MPS;
+    state.gpsSpeedKnots=knots;
+    if(!Number.isFinite(state.gpsSpeedDisplayKnots)) state.gpsSpeedDisplayKnots=knots;
+    state.gpsSpeedAccuracyKnots=Number.isFinite(accuracyMetersPerSecond)&&accuracyMetersPerSecond>=0?accuracyMetersPerSecond*KNOTS_PER_MPS:null;
+    state.gpsSpeedLastFixAt=performance.now();
+    state.gpsSpeedStatus='GPS RECEIVING';
+    updateSpeedInfo();
+  };
+  window.nativeSpeedStatus=message=>{
+    if(state.speedMode!=='live')return;
+    state.gpsSpeedStatus=String(message).slice(0,120);
+    updateSpeedInfo();
+  };
+  setInterval(updateSpeedInfo,1000);
+  updateSpeedInfo();
+  function updateGpsInfo() {
+    const btn=el('altMode');
+    btn.textContent=state.altMode==='live'?'ALT: GPS LIVE':'ALT: SIM';
+    btn.setAttribute('aria-pressed',state.altMode==='live'?'true':'false');
+    btn.classList.toggle('selected',state.altMode==='live');
+    if(state.altMode==='sim') {
+      el('gpsInfo').textContent='SIMULATED ALTITUDE 4,300 FT · TAP FOR LIVE GPS';
+    } else if(gpsFresh()) {
+      const acc=Number.isFinite(state.gpsAccuracyFeet)?'  ±'+Math.round(state.gpsAccuracyFeet)+' FT':'';
+      el('gpsInfo').textContent='LIVE '+state.gpsDatum+'  '+Math.round(state.gpsAltitudeFeet).toLocaleString('en-US')+' FT'+acc;
+    } else {
+      el('gpsInfo').textContent='GPS: '+(state.gpsStatus||'WAITING FOR SATELLITES')+' · NO FIX';
+    }
+  }
+  el('altMode').addEventListener('click', () => {
+    state.altMode=state.altMode==='sim'?'live':'sim';
+    state.gpsAltitudeFeet=null; state.gpsDisplayFeet=null; state.gpsLastFixAt=0;
+    state.gpsStatus=state.altMode==='live'?'WAITING FOR PRECISE LOCATION PERMISSION / SATELLITES':'GPS OFF';
+    updateGpsInfo();
+    syncGeolocation();
+  });
+  // Receives only altitude/quality/datum; latitude and longitude are never stored or sent to HTML.
+  window.receiveNativeGps=(meters,accuracyMeters,datum)=>{
+    if(state.altMode!=='live'||!Number.isFinite(meters))return;
+    if(datum!=='MSL' && datum!=='WGS84') return;
+    const feet=meters*FT_PER_M;
+    if(!Number.isFinite(feet)||Math.abs(feet)>328084)return;
+    state.gpsAltitudeFeet=feet;
+    if(!Number.isFinite(state.gpsDisplayFeet)) state.gpsDisplayFeet=feet;
+    state.gpsDatum=datum;
+    state.gpsAccuracyFeet=Number.isFinite(accuracyMeters)&&accuracyMeters>=0?accuracyMeters*FT_PER_M:null;
+    state.gpsLastFixAt=performance.now();
+    state.gpsStatus='GPS RECEIVING';
+    updateGpsInfo();
+  };
+  window.nativeGpsStatus=message=>{
+    if(state.altMode!=='live')return;
+    state.gpsStatus=String(message).slice(0,120);
+    updateGpsInfo();
+  };
+  setInterval(updateGpsInfo,1000);
+  updateGpsInfo();
+
+  let checkTimer=0;
+  function checkForSensor(){
+    clearTimeout(checkTimer);
+    const before=state.lastSensor;
+    checkTimer=setTimeout(()=>{
+      if(state.mode!=='motion'||state.lastSensor!==before)return;
+      setStatus('NO SENSOR DATA');
+      hint(!window.isSecureContext?'Open this site through HTTPS (GitHub Pages), then tap SENSORS.':'No motion events. On Android check Chrome > Site settings > Motion sensors; on iPhone use Safari and allow access.');
+      updateDiagnostics();
+    },3000);
+  }
+  function setMode(mode) {
+    state.mode=mode;
+    el('motion').classList.toggle('selected',mode==='motion');
+    el('manualBtn').classList.toggle('selected',mode==='manual');
+    el('demoBtn').classList.toggle('selected',mode==='demo');
+    el('manual').classList.toggle('visible',mode==='manual');
+    if(mode==='manual') {
+      state.manualBank=clamp(Math.round(state.bank),-80,80);
+      state.manualPitch=clamp(Math.round(state.pitch),-40,40);
+      syncManual(); setStatus('MANUAL MODE',true);
+      hint('Move the sliders or drag the horizon. Bank and pitch are simulated.');
+    } else if(mode==='demo') {
+      setStatus('DEMO • SENSOR NOT USED');
+      hint('The horizon is now moving automatically for a visual test. Tap SENSORS for real phone movement.');
+    } else {
+      if(state.sensorSeen && performance.now()-state.lastSensor<3000) {
+        state.targetBank=wrap(state.rawBank-state.zeroBank);
+        state.targetPitch=clamp(state.rawPitch-state.zeroPitch,-85,85);
+        setStatus('MOTION ACTIVE',true);
+        hint('Move the phone to bank and pitch. Tap ZERO in your chosen level position.');
+      } else {
+        setStatus('MOTION WAITING');
+        hint('Motion requires browser sensor access. If blocked, use MANUAL or an HTTPS-hosted copy.');
+      }
+    }
+  }
+  function syncManual() {
+    el('bank').value=state.manualBank;
+    el('pitch').value=state.manualPitch;
+    el('bankNum').textContent=(state.manualBank>0?'+':'')+state.manualBank+'°';
+    el('pitchNum').textContent=(state.manualPitch>0?'+':'')+state.manualPitch+'°';
+  }
+  function updateManual() {
+    state.manualBank=Number(el('bank').value);
+    state.manualPitch=Number(el('pitch').value);
+    state.targetBank=state.manualBank; state.targetPitch=state.manualPitch;
+    syncManual();
+  }
+  el('bank').addEventListener('input',updateManual);
+  el('pitch').addEventListener('input',updateManual);
+  el('manualBtn').addEventListener('click',()=>setMode('manual'));
+  el('demoBtn').addEventListener('click',()=>setMode('demo'));
+  el('motion').addEventListener('click',async()=>{
+    setMode('motion');
+    setStatus('CHECKING SENSORS');
+    checkForSensor();
+    try {
+      // iOS requires the request to begin directly from a user tap.
+      const pOrient = (typeof DeviceOrientationEvent!=='undefined' &&
+          typeof DeviceOrientationEvent.requestPermission==='function') ?
+          DeviceOrientationEvent.requestPermission() : Promise.resolve('granted');
+      const pMotion = (typeof DeviceMotionEvent!=='undefined' &&
+          typeof DeviceMotionEvent.requestPermission==='function') ?
+          DeviceMotionEvent.requestPermission() : Promise.resolve('granted');
+      const results = await Promise.allSettled([pOrient,pMotion]);
+      const granted=results.some(r=>r.status==='fulfilled' && r.value==='granted');
+      if (!granted) throw new Error('Motion permission denied');
+      motionAllowed=true;
+      await requestWakeLock();
+      hint('Hold your phone upright in portrait and tap ZERO. The compass needs absolute orientation; Chrome provides this separately from tilt.');
+    } catch(e) {
+      setStatus('SENSOR BLOCKED');
+      hint((e && e.message?e.message+'. ':'')+'Use MANUAL, or open the file from a secure HTTPS site.');
+    }
+  });
+  el('zero').addEventListener('click',()=>{
+    if(state.mode==='manual') {
+      state.manualBank=0; state.manualPitch=0; state.targetBank=0;state.targetPitch=0; syncManual();
+      hint('Manual attitude set to straight and level.');
+    } else if(state.mode==='demo') {
+      hint('DEMO is an animation only. Tap SENSORS or MANUAL before using ZERO.');
+    } else if(state.sensorSeen) {
+      state.zeroBank=state.rawBank;state.zeroPitch=state.rawPitch;
+      state.targetBank=0;state.targetPitch=0;
+      hint('Calibrated: current phone position is your level reference.');
+    } else {
+      hint('No sensor readings yet. Tap MOTION, or switch to MANUAL.');
+    }
+  });
+  el('level').addEventListener('click',()=>{
+    if(state.mode==='manual') {
+      state.manualBank=0;state.manualPitch=0;updateTarget(0,0);syncManual();
+    } else if(state.mode==='demo') {
+      setMode('manual');state.manualBank=0;state.manualPitch=0;updateTarget(0,0);syncManual();
+    } else if(state.sensorSeen) {
+      state.zeroBank=state.rawBank;state.zeroPitch=state.rawPitch;updateTarget(0,0);
+    } else updateTarget(0,0);
+    hint(state.mode==='motion'?'Level reference reset to current phone angle.':'Artificial horizon leveled.');
+  });
+  function updateTarget(bank,pitch) {state.targetBank=bank;state.targetPitch=pitch;}
+  el('full').addEventListener('click',async()=>{
+    try {
+      if (screen.orientation && typeof screen.orientation.lock === 'function') {
+        const desired=matchMedia('(orientation: portrait)').matches?'landscape':'portrait';
+        await screen.orientation.lock(desired);
+        hint('Display orientation changed. Tap ZERO for the new position.');
+      } else {
+        hint('On iPhone, rotate the phone physically (and disable Rotation Lock in Control Center).');
+      }
+    } catch(e){hint('iPhone Safari does not allow forced rotation here. Rotate the phone physically.');}
+  });
+  // Euler beta/gamma -> direction of 'up' in the phone's coordinates.
+  // Screen rotation ensures the reading follows portrait and landscape equally.
+  function deviceUp(beta,gamma) {
+    const b=beta*rad,g=gamma*rad;
+    let ux=-Math.cos(b)*Math.sin(g), uy=Math.sin(b),uz=Math.cos(b)*Math.cos(g);
+    let a=(screen.orientation && Number.isFinite(screen.orientation.angle))?screen.orientation.angle:(Number(window.orientation)||0);
+    const t=a*rad;
+    return {x:ux*Math.cos(t)+uy*Math.sin(t),y:-ux*Math.sin(t)+uy*Math.cos(t),z:uz};
+  }
+  let firstSensor=true;
+  function sensorUpdate(up,source) {
+    if(![up.x,up.y,up.z].every(Number.isFinite)) return;
+    const length=Math.hypot(up.x,up.y,up.z);
+    if(length<0.2) return;
+    const x=up.x/length,y=up.y/length,z=up.z/length;
+    // A mostly horizontal display has a poorly defined bank angle: keep its last value.
+    const flatness=Math.hypot(x,y);
+    const b=flatness>0.15?Math.atan2(-x,y)/rad:state.rawBank;
+    // In upright portrait: top of phone toward user must be pitch UP (more blue).
+    // Reverse the raw pitch sign to match the physical movement; ZERO remains the level reference.
+    const p=(state.pitchReverse?-1:1)*Math.atan2(z,flatness)/rad;
+    if(source==='motion' && state.source==='orientation' && performance.now()-state.lastSensor<1200) return;
+    if(firstSensor) { state.rawBank=b;state.rawPitch=p;state.zeroBank=b;state.zeroPitch=p;firstSensor=false; }
+    else {state.rawBank=b;state.rawPitch=p;}
+    state.sensorSeen=true;state.lastSensor=performance.now();state.source=source;
+    if(state.mode==='motion') {
+      updateTarget(wrap(b-state.zeroBank),clamp(p-state.zeroPitch,-85,85));
+      if(el('statusText').textContent!=='MOTION ACTIVE' && el('statusText').textContent!=='NATIVE MOTION ACTIVE') {
+        setStatus('MOTION ACTIVE',true);
+        hint('Sensor connected. Tap ZERO when holding your preferred straight-and-level position.');
+      }
+    }
+  }
+  // Called directly from the Android SensorManager through WebView.evaluateJavascript.
+  // Gravity/accelerometer readings are unaffected by browser sensor permissions.
+  window.receiveNativeGravity = (gx, gy, gz, rotation) => {
+    if (![gx,gy,gz,rotation].every(Number.isFinite)) return;
+    const t=rotation*Math.PI/2;
+    const x=gx*Math.cos(t)+gy*Math.sin(t);
+    const y=-gx*Math.sin(t)+gy*Math.cos(t);
+    sensorUpdate({x,y,z:gz},'native');
+    if (state.sensorSeen && el('statusText').textContent==='MOTION ACTIVE') {
+      setStatus('NATIVE MOTION ACTIVE',true);
+    }
+  };
+  window.receiveNativeHeading = (headingDeg, source) => {
+    if (!Number.isFinite(headingDeg)) return;
+    state.heading=((headingDeg%360)+360)%360;
+    state.headingSource=String(source||'MAG').slice(0,12);
+  };
+  function normalizeBearing(degrees) {return ((degrees%360)+360)%360;}
+  function setCompass(degrees, source, northReferenced=false) {
+    if (!Number.isFinite(degrees)) return;
+    const now=performance.now();
+    state.heading=normalizeBearing(degrees);
+    state.headingSource=source;
+    lastHeadingAt=now;
+    if(northReferenced) lastCompassAt=now;
+  }
+  // Tilt-compensated compass heading for a phone held UPRIGHT, screen facing the user.
+  // The forward direction is out of the BACK of the screen (the view direction).
+  // Standard DeviceOrientation alpha is RELATIVE in most Chrome releases and must
+  // NEVER be used for a north-referenced compass.
+  function absoluteCompassHeading(e) {
+    if (![e.alpha,e.beta,e.gamma].every(Number.isFinite)) return null;
+    const a=e.alpha*rad, b=e.beta*rad, g=e.gamma*rad;
+    const east=-Math.cos(a)*Math.sin(g)-Math.sin(a)*Math.sin(b)*Math.cos(g);
+    const north=-Math.sin(a)*Math.sin(g)+Math.cos(a)*Math.sin(b)*Math.cos(g);
+    const horizontal=Math.hypot(east,north);
+    // When nearly flat, the screen-back vector is vertical. Use the screen's
+    // top-edge heading instead (the conventional flat-phone compass bearing).
+    if(horizontal<0.18) return normalizeBearing(360-e.alpha);
+    return normalizeBearing(Math.atan2(east,north)/rad);
+  }
+  function fixLocation(position) {
+    if (!position || !position.coords) return;
+    const c=position.coords;
+    const dateAge=Date.now()-position.timestamp;
+    if (dateAge>15000 || dateAge< -2000) return;
+    if (state.altMode==='live') {
+      if (Number.isFinite(c.altitude)) {
+        // Browser Geolocation altitude is WGS84 ellipsoid height; not barometric altitude.
+        window.receiveNativeGps(c.altitude,Number.isFinite(c.altitudeAccuracy)?c.altitudeAccuracy:-1,'WGS84');
+      } else {
+        state.gpsStatus='POSITION FOUND · ALTITUDE NOT PROVIDED';updateGpsInfo();
+      }
+    }
+    if (state.speedMode==='live') {
+      let speed=c.speed;
+      if (!Number.isFinite(speed) && lastLocation && c.accuracy<75 && lastLocation.accuracy<75) {
+        // Deliberately avoid reporting speed derived from noisy position: no bogus tape values.
+        state.gpsSpeedStatus='POSITION FOUND · SPEED NOT PROVIDED';
+      }
+      if (Number.isFinite(speed) && speed>=0) window.receiveNativeSpeed(speed,-1);
+      else updateSpeedInfo();
+    }
+    // Use satellite course only while moving, and only when live magnetic compass is absent.
+    if (Number.isFinite(c.heading) && Number.isFinite(c.speed) && c.speed>=2 &&
+        performance.now()-lastCompassAt>4000) {
+       setCompass(c.heading,'GPS TRK'); // Track is direction of travel, NOT magnetic heading.
+    }
+    lastLocation={time:position.timestamp, accuracy:c.accuracy};
+  }
+  function locationError(error) {
+    const explanation=error.code===1?'LOCATION DENIED':error.code===2?'LOCATION UNAVAILABLE':'GPS TIMEOUT';
+    if (state.altMode==='live') {state.gpsStatus=explanation;updateGpsInfo();}
+    if (state.speedMode==='live') {state.gpsSpeedStatus=explanation;updateSpeedInfo();}
+  }
+  function syncGeolocation() {
+    const needed=(state.altMode==='live'||state.speedMode==='live')&&!document.hidden;
+    if (!needed) {if(positionWatch!==null){navigator.geolocation.clearWatch(positionWatch);positionWatch=null;}return;}
+    if(positionWatch!==null)return;
+    if (!navigator.geolocation || !window.isSecureContext) {locationError({code:2});return;}
+    state.gpsStatus='REQUESTING LOCATION';state.gpsSpeedStatus='REQUESTING LOCATION';
+    positionWatch=navigator.geolocation.watchPosition(fixLocation,locationError,
+       {enableHighAccuracy:true,timeout:20000,maximumAge:0});
+  }
+  async function requestWakeLock() {
+    if (!wakeRequested || document.hidden) return;
+    if (!('wakeLock' in navigator) || typeof navigator.wakeLock.request!=='function') {
+      el('wakeBtn').textContent='WAKE: N/A';
+      el('wakeBtn').title='Your Safari version does not provide a wake lock';
+      return;
+    }
+    try {
+      if(!wakeLock) {
+        wakeLock=await navigator.wakeLock.request('screen');
+        wakeLock.addEventListener('release',()=>{wakeLock=null; if(wakeRequested && !document.hidden) el('wakeBtn').textContent='WAKE: RETRY';});
+      }
+      el('wakeBtn').textContent='WAKE: ON';
+    }catch(e){el('wakeBtn').textContent='WAKE: RETRY';}
+  }
+  el('wakeBtn').addEventListener('click',async()=>{
+    wakeRequested=!wakeRequested;
+    if(!wakeRequested){ if(wakeLock) await wakeLock.release();wakeLock=null;el('wakeBtn').textContent='WAKE: OFF';}
+    else {el('wakeBtn').textContent='WAKE: TRY';await requestWakeLock();}
+  });
+  document.addEventListener('visibilitychange',()=>{
+    if(document.hidden) {
+      syncGeolocation(); audio.pause();
+      state.bankAudioPlaying=false;
+    } else {
+      syncGeolocation();
+      if(wakeRequested)requestWakeLock();
+    }
+  });
+
+  window.nativeSensorUnavailable = () => {
+    setStatus('ANDROID SENSOR NOT AVAILABLE');
+    hint('No Android gravity or accelerometer sensor was found. Use MANUAL or DEMO.');
+  };
+  window.addEventListener('deviceorientation',e=>{
+    state.orientationEvents++;
+    if (Number.isFinite(e.webkitCompassHeading)) {
+      // iPhone Safari returns the magnetic direction directly.
+      setCompass(e.webkitCompassHeading,'SAFARI MAG',true);
+    } else if (e.absolute===true && performance.now()-lastAbsoluteHeadingAt>1000) {
+      // Some browsers mark ordinary orientation events as absolute.
+      const heading=absoluteCompassHeading(e);
+      if (heading!==null) setCompass(heading,'ABS ORIENT',true);
+    } else if (e.absolute!==true) relativeOrientationEvents++;
+    if(!Number.isFinite(e.beta)||!Number.isFinite(e.gamma)) return;
+    sensorUpdate(deviceUp(e.beta,e.gamma),'orientation');
+  },true);
+  // Chrome for Android commonly emits a separate world-referenced event.
+  // Ordinary deviceorientation alpha is relative and cannot provide a true compass.
+  window.addEventListener('deviceorientationabsolute',e=>{
+    if (e.absolute===false) return;
+    const heading=absoluteCompassHeading(e);
+    if (heading===null) return;
+    absoluteHeadingEvents++;
+    lastAbsoluteHeadingAt=performance.now();
+    setCompass(heading,'CHROME ABS',true);
+  },true);
+  // Some Android browsers provide only accelerometer data; use a filtered gravity fallback.
+  let gravity=null;
+  window.addEventListener('devicemotion',e=>{
+    if (ANDROID_NATIVE_APP) return;
+    state.motionEvents++;
+    if(!e.accelerationIncludingGravity) return;
+    const a=e.accelerationIncludingGravity;
+    if(![a.x,a.y,a.z].every(Number.isFinite)) return;
+    gravity=gravity?{
+      x:gravity.x*.88+a.x*.12,
+      y:gravity.y*.88+a.y*.12,
+      z:gravity.z*.88+a.z*.12
+    }:{x:a.x,y:a.y,z:a.z};
+    let angle=(screen.orientation&&Number.isFinite(screen.orientation.angle))?screen.orientation.angle:(Number(window.orientation)||0);
+    let t=angle*rad;
+    // Android's accelerometer at rest measures the 'up' reaction force.
+    sensorUpdate({x:gravity.x*Math.cos(t)+gravity.y*Math.sin(t),y:-gravity.x*Math.sin(t)+gravity.y*Math.cos(t),z:gravity.z},'motion');
+  },true);
+  canvas.addEventListener('pointerdown',e=>{
+    if(state.mode!=='manual')return;
+    state.pressed=true;state.dragX=e.clientX;state.dragY=e.clientY;
+    canvas.setPointerCapture(e.pointerId);
+  });
+  canvas.addEventListener('pointermove',e=>{
+    if(!state.pressed||state.mode!=='manual')return;
+    let dx=e.clientX-state.dragX,dy=e.clientY-state.dragY;
+    state.dragX=e.clientX;state.dragY=e.clientY;
+    state.manualBank=clamp(Math.round(state.manualBank+dx*.25),-80,80);
+    state.manualPitch=clamp(Math.round(state.manualPitch-dy*.18),-40,40);
+    syncManual();updateTarget(state.manualBank,state.manualPitch);
+  });
+  canvas.addEventListener('pointerup',()=>state.pressed=false);
+  canvas.addEventListener('pointercancel',()=>state.pressed=false);
+  function txt(s,x,y,size=16,color='#e8f8ff',align='center',bold=false) {
+    ctx.fillStyle=color;ctx.font=(bold?'700 ':'500 ')+size+'px ui-monospace,SFMono-Regular,Consolas,monospace';
+    ctx.textAlign=align;ctx.textBaseline='middle';ctx.fillText(String(s),x,y);
+  }
+  function rect(x,y,w,h,fill,stroke,line=1) {
+    if(fill){ctx.fillStyle=fill;ctx.fillRect(x,y,w,h);}
+    if(stroke){ctx.lineWidth=line;ctx.strokeStyle=stroke;ctx.strokeRect(x,y,w,h);}
+  }
+  function line(x1,y1,x2,y2,color='#fff',width=2) {
+    ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.strokeStyle=color;ctx.lineWidth=width;ctx.stroke();
+  }
+  function poly(points,fill,stroke,width=1) {
+    ctx.beginPath();points.forEach(([x,y],i)=>i?ctx.lineTo(x,y):ctx.moveTo(x,y));ctx.closePath();
+    if(fill){ctx.fillStyle=fill;ctx.fill();}if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=width;ctx.stroke();}
+  }
+  function drawAttitude(a,bank,pitch,wide) {
+    const {x,y,w,h}=a;const cx=x+w/2,cy=y+h/2+13;
+    rect(x,y,w,h,'#073b61','#b5c6cd',1.8);
+    ctx.save();ctx.beginPath();ctx.rect(x+1,y+1,w-2,h-2);ctx.clip();
+    ctx.save();ctx.translate(cx,cy);ctx.rotate(-bank*rad);
+    const ppx=Math.min(w*.048, h*.064);
+    ctx.translate(0,pitch*ppx);
+    const span=3300;
+    let grad=ctx.createLinearGradient(0,-span/2,0,0);
+    grad.addColorStop(0,'#063775');grad.addColorStop(.88,'#137ec3');grad.addColorStop(1,'#379bd2');
+    rect(-span/2,-span/2,span,span/2,grad);
+    grad=ctx.createLinearGradient(0,0,0,span/2);
+    grad.addColorStop(0,'#a0744d');grad.addColorStop(.38,'#8b593b');grad.addColorStop(1,'#503124');
+    rect(-span/2,0,span,span/2,grad);
+    line(-span/2,0,span/2,0,'#fff',2.5);
+    const unit=Math.max(13,Math.min(20,w*.033));
+    for(let deg=-90;deg<=90;deg+=5) {
+      if(deg===0)continue;
+      const yy=-deg*ppx;
+      const major=deg%10===0;
+      const len=major?w*.24:w*.125;
+      const col=major?'#f3f9fc':'#dae8ef';
+      if(deg<0 && major) {
+        line(-len/2,yy,-len*.12,yy,col,2.2);
+        line(len*.12,yy,len/2,yy,col,2.2);
+      } else line(-len/2,yy,len/2,yy,col,major?2.5:1.8);
+      if(major) {
+        const s=Math.abs(deg);
+        txt(s,-len/2-7,yy,unit,col,'right',true);
+        txt(s,len/2+7,yy,unit,col,'left',true);
+      }
+    }
+    // Sky/ground orientation chevrons for unusual attitudes.
+    for(const p of [-70,-50,50,70]) {
+      let yy=-p*ppx;
+      if(Math.abs(p)>55) poly([[-32,yy-9],[0,yy+10],[32,yy-9]],null,'#f2b84a',3);
+    }
+    ctx.restore();
+    // Bank arc, index ticks, and moving bank pointer.
+    const r=Math.min(w*.41,h*.42), bx=cx, by=cy+18;
+    ctx.save();ctx.translate(bx,by);
+    for (const v of [-60,-45,-30,-20,-10,0,10,20,30,45,60]) {
+      const theta=v*rad;
+      const r1=r+(Math.abs(v)===30?0:7),r2=r+(Math.abs(v)===0?23:Math.abs(v)===30?20:12);
+      line(Math.sin(theta)*r1,-Math.cos(theta)*r1,Math.sin(theta)*r2,-Math.cos(theta)*r2,'#fcffff',v===0?3:2);
+    }
+    const th=clamp(bank,-70,70)*rad;
+    const px=Math.sin(th)*(r-8),py=-Math.cos(th)*(r-8);
+    ctx.save();ctx.translate(px,py);ctx.rotate(-th);
+    poly([[0,-12],[-9,5],[9,5]],'#f7d968','#232b31',1.2);ctx.restore();
+    ctx.restore();
+    // Fixed aircraft symbol; the horizon, not the airplane, moves.
+    const wing=Math.min(100,w*.17),half=wing*.72;
+    line(cx-wing,cy,cx-20,cy,'#1a1c1e',9);
+    line(cx-wing,cy,cx-20,cy,'#f7cf45',6);
+    line(cx+20,cy,cx+wing,cy,'#1a1c1e',9);
+    line(cx+20,cy,cx+wing,cy,'#f7cf45',6);
+    line(cx-wing,cy,cx-wing+13,cy+14,'#f7cf45',5);
+    line(cx+wing,cy,cx+wing-13,cy+14,'#f7cf45',5);
+    poly([[cx-11,cy-4],[cx+11,cy-4],[cx+11,cy+7],[cx-11,cy+7]],'#0a1014','#f7cf45',3);
+    // Quiet vertical scale reference.
+    const barX=x+12;
+    line(barX,cy-27,barX,cy+27,'#ffffffa8',1.5);
+    line(barX-6,cy,barX+6,cy,'#ffffffa8',1.5);
+    ctx.restore();
+    txt('ATTITUDE',x+11,y+17,wide?14:13,'#e8f5fb','left',true);
+    txt(state.mode==='motion'?'LIVE':'SIM',x+w-10,y+17,wide?13:12,'#dceef6','right',true);
+  }
+  function drawTape(x,y,w,h,type,wide) {
+    const isSpeed=type==='speed';const cx=x+w/2,cy=y+h/2;
+    rect(x,y,w,h,'#080f18','#586977',1.2);
+    const value=isSpeed?currentSpeed():currentAltitude();
+    const hasNumber=Number.isFinite(value);
+    const step=isSpeed?10:100;
+    const pps=(h/6)/step;
+    if(hasNumber){
+      ctx.save();ctx.beginPath();ctx.rect(x+2,y+2,w-4,h-4);ctx.clip();
+      const start=Math.floor(value/(step/2))*(step/2)-step*7;
+      for(let i=0;i<=28;i++) {
+        const v=start+i*(step/2);
+        const yy=cy-(v-value)*pps;
+        if(yy<y-20 || yy>y+h+20)continue;
+        const major=Math.abs((v/step)-Math.round(v/step))<.01;
+        const label=isSpeed?String(Math.round(v)):String(Math.round(v));
+        line(isSpeed?x+w-(major?24:16):x+(major?24:16),yy,isSpeed?x+w-5:x+5,yy,'#d5e4ef',major?2:1.2);
+        if(major)txt(label,isSpeed?x+8:x+w-6,yy,wide?18:17,'#eaf6fa',isSpeed?'left':'right');
+      }
+      ctx.restore();
+    }
+    const bh=54;
+    rect(x+2,cy-bh/2,w-4,bh,'#03090f','#fcffff',2);
+    poly(isSpeed?[[x+w-3,cy-9],[x+w+10,cy],[x+w-3,cy+9]]:[[x+3,cy-9],[x-10,cy],[x+3,cy+9]],'#f9fbff','#f9fbff');
+    const readout=hasNumber?String(Math.round(value)):'----';
+    txt(readout,cx,cy,isSpeed?(wide?30:28):readout.length>5?(wide?24:21):(wide?30:28),'#fefefe','center',true);
+    const label=isSpeed?(state.speedMode==='sim'?'IAS / KT':'GPS GS / KT'):state.altMode==='sim'?'SIM ALT / FT':'GPS '+(gpsFresh()?state.gpsDatum:'ALT')+' / FT';
+    txt(label,cx,y-16,wide?17:15,isSpeed?'#9de28e':state.altMode==='sim'?'#e2bf80':'#8be4d4','center',true);
+    let foot;
+    if(isSpeed)foot=state.speedMode==='sim'?'DEMO 240':!speedFresh()?'NO SPEED FIX':Number.isFinite(state.gpsSpeedAccuracyKnots)?'±'+Math.round(state.gpsSpeedAccuracyKnots)+' KT':'ACC —';
+    else if(state.altMode==='sim')foot='DEMO 4300';
+    else if(!gpsFresh())foot='NO GPS FIX';
+    else foot=Number.isFinite(state.gpsAccuracyFeet)?'±'+Math.round(state.gpsAccuracyFeet)+' FT':'ACC —';
+    txt(foot,cx,y+h+20,wide?17:15,'#e4f0f5','center');
+  }
+  function drawCompass(cx,cy,r,wide) {
+    const col='#e4f4ff';
+    const heading=Number.isFinite(state.heading)?state.heading:0;
+    const headingText=Number.isFinite(state.heading)?String(Math.round(heading)%360).padStart(3,'0'):'---';
+    ctx.save();ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);ctx.clip();
+    ctx.strokeStyle='#8cbdc4';ctx.lineWidth=2.5;ctx.beginPath();ctx.arc(cx,cy,r-3,0,Math.PI*2);ctx.stroke();
+    for(let h=0;h<360;h+=5) {
+      const a=(h-heading)*rad;
+      const v=h%30===0, big=h%10===0;
+      const r1=r-(v?23:big?14:9),r2=r-3;
+      line(cx+Math.sin(a)*r1,cy-Math.cos(a)*r1,cx+Math.sin(a)*r2,cy-Math.cos(a)*r2,col,big?2:1);
+      if(v) {
+        const lab= h===0?'N':h===90?'E':h===180?'S':h===270?'W':String(h/10).padStart(2,'0');
+        txt(lab,cx+Math.sin(a)*(r-43),cy-Math.cos(a)*(r-43),wide?17:18,col,'center',true);
+      }
+    }
+    line(cx-r*.67,cy,cx+r*.67,cy,'#78daeb',2);
+    line(cx,cy-r*.64,cx,cy+r*.65,'#78daeb',2);
+    poly([[cx,cy-r*.8],[cx-9,cy-r*.67],[cx+9,cy-r*.67]],'#e3f6ff');
+    // Magenta course deviation graphics are demonstration only.
+    line(cx-4,cy+r*.3,cx-4,cy-r*.24,'#ee4ddb',3);
+    poly([[cx,cy-r*.43],[cx-11,cy-r*.25],[cx+11,cy-r*.25]],'#ed6add');
+    ctx.restore();
+    rect(cx-43,cy-r-17,86,29,'#03070d','#f1f7fa',1.5);
+    txt(headingText,cx,cy-r-2,25,'#eaf9ff','center',true);
+    txt(state.headingSource,cx,cy+r+20,wide?13:12,'#9ddcee','center',true);
+  }
+  function drawPortrait() {
+    const W=800,H=1190;
+    rect(0,0,W,H,'#020608');
+    line(22,52,778,52,'#3b4c56',2);
+    txt('LJ45 / HONEYWELL PRIMUS-STYLE',32,27,17,'#a7c6d3','left',true);
+    txt('SIMULATED PFD',768,27,16,'#e2c87a','right',true);
+    const annunciations=[['LOC',125],['HDG',270],[state.speedMode==='live'?'GPS GS':'IAS',405],['GS',543],['AP',655]];
+    annunciations.forEach(([label,x])=>txt(label,x,79,20,label==='AP'?'#9de28e':'#8adf89','center',true));
+    const a={x:137,y:121,w:526,h:687};
+    drawAttitude(a,state.bank,state.pitch,false);
+    drawTape(20,173,109,580,'speed',false);
+    drawTape(672,173,109,580,'alt',false);
+    txt('BANK',245,839,17,'#b1c2d0','left',true);
+    txt((state.bank>=0?'+':'')+state.bank.toFixed(1)+'°',340,839,19,'#f8d76d','left',true);
+    txt('PITCH',462,839,17,'#b1c2d0','left',true);
+    txt((state.pitch>=0?'+':'')+state.pitch.toFixed(1)+'°',561,839,19,'#f8d76d','left',true);
+    line(20,857,780,857,'#72848b',2);
+    const ccx=400, ccy=1045, r=172;
+    drawCompass(ccx,ccy,r,false);
+    txt('359 CRS',32,925,21,'#e4f2f8','left',true);
+    txt('ILS 1',32,961,20,'#a6e79d','left',true);
+    txt('13.1 NM',32,998,22,'#e9f5ff','left',true);
+    txt('HDG '+(Number.isFinite(state.heading)?String(Math.round(state.heading)%360).padStart(3,'0'):'---'),767,930,21,'#c1aaff','right',true);
+    txt('VOR1',762,971,21,'#e9f4fb','right');
+    txt(state.altMode==='live'||state.speedMode==='live'?'GPS DATA MODE':'DEMO DATA',763,1008,18,'#bbaa80','right',true);
+    txt('PHONE ORIENTATION / GPS SIMULATOR',400,1170,16,'#8b9eaa','center');
+  }
+  function drawLandscape() {
+    const W=1230,H=725;
+    rect(0,0,W,H,'#020608');
+    txt('LJ45   PRIMUS 1000   •   SIMULATION',22,24,17,'#b4c9d2','left',true);
+    [['LOC',355],['HDG',480],[state.speedMode==='live'?'GPS GS':'IAS',622],['GS',760],['AP',885]].forEach(([v,x])=>txt(v,x,55,20,'#93df8c','center',true));
+    const a={x:245,y:88,w:740,h:543};
+    drawAttitude(a,state.bank,state.pitch,true);
+    drawTape(34,125,196,466,'speed',true);
+    drawTape(999,125,196,466,'alt',true);
+    txt('PITCH '+(state.pitch>=0?'+':'')+state.pitch.toFixed(1)+'°',350,676,21,'#fbd974','center',true);
+    txt('BANK '+(state.bank>=0?'+':'')+state.bank.toFixed(1)+'°',606,676,21,'#fbd974','center',true);
+    txt('HDG '+(Number.isFinite(state.heading)?String(Math.round(state.heading)%360).padStart(3,'0'):'---'),880,676,21,'#cbecfc','center',true);
+    line(24,704,1206,704,'#536875',1);
+    txt((state.altMode==='live'?'GPS ALT · ':'')+(state.speedMode==='live'?'GPS GS · ':'')+'HEADING LIVE · OTHER AIR/NAV DATA SIMULATED',615,715,12,'#7997a8','center');
+  }
+  let width=0,height=0,dpr=1;
+  function resize(){
+    const bounds=canvas.getBoundingClientRect();
+    width=Math.max(1,bounds.width);height=Math.max(1,bounds.height);
+    dpr=Math.min(window.devicePixelRatio||1,2.5);
+    const cw=Math.round(width*dpr),ch=Math.round(height*dpr);
+    if(canvas.width!==cw||canvas.height!==ch){canvas.width=cw;canvas.height=ch;}
+  }
+  const ro=typeof ResizeObserver!=='undefined'?new ResizeObserver(resize):null;
+  if(ro)ro.observe(canvas);
+  window.addEventListener('resize',resize);
+  window.addEventListener('orientationchange',()=>{resize();});
+  resize();
+  let prev=performance.now();
+  function render(now) {
+    const elapsed=clamp((now-prev)/1000,0,.1);prev=now;
+    if(state.mode==='demo'){state.targetBank=36*Math.sin(now/1200);state.targetPitch=18*Math.sin(now/1700);}
+    const smooth=1-Math.exp(-elapsed*12);
+    state.bank+=wrap(state.targetBank-state.bank)*smooth;
+    state.pitch+=(state.targetPitch-state.pitch)*smooth;
+    if(Math.abs(state.bank)<.004)state.bank=0;
+    if(Math.abs(state.pitch)<.004)state.pitch=0;
+    refreshBankSound();
+    if(gpsFresh()) {
+      if(!Number.isFinite(state.gpsDisplayFeet))state.gpsDisplayFeet=state.gpsAltitudeFeet;
+      else state.gpsDisplayFeet+=(state.gpsAltitudeFeet-state.gpsDisplayFeet)*(1-Math.exp(-elapsed*2.4));
+    }
+    if(speedFresh()) {
+      if(!Number.isFinite(state.gpsSpeedDisplayKnots))state.gpsSpeedDisplayKnots=state.gpsSpeedKnots;
+      else state.gpsSpeedDisplayKnots+=(state.gpsSpeedKnots-state.gpsSpeedDisplayKnots)*(1-Math.exp(-elapsed*2.4));
+    }
+    const wide=width/height>1.12;
+    const designW=wide?1230:800,designH=wide?725:1190;
+    const factor=Math.min(width/designW,height/designH);
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    ctx.fillStyle='#020608';ctx.fillRect(0,0,width,height);
+    ctx.translate((width-designW*factor)/2,(height-designH*factor)/2);
+    ctx.scale(factor,factor);
+    if(wide)drawLandscape();else drawPortrait();
+    requestAnimationFrame(render);
+  }
+  requestAnimationFrame(render);
+  setStatus('TAP SENSORS');
+  el('bankNotice').textContent='ALERT >35° / CLEAR <32° · TAP TEST SOUND TO ARM';
+  updateDiagnostics();
+})();
+</script>
+<script>
+if ('serviceWorker' in navigator && location.protocol==='https:') {
+  window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));
+}
+</script>
+</body>
+</html>
